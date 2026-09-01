@@ -1,0 +1,24 @@
+kind = "mobile"
+previewPath = "/hayvan-dili/"
+title = "Hayvan Dili"
+description = "Evcil hayvan seslerini eğlenceli ve sevimli mesajlara dönüştüren, kullanıcı mesajlarını hayvana özel seslerle oynatan, çocuk dostu bir Expo mobil uygulaması."
+version = "1.0.0"
+id = "artifacts/hayvan-dili"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/hayvan-dili/" ]
+localPort = 19979
+
+[services.development]
+run = "pnpm --filter @workspace/hayvan-dili run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/hayvan-dili", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/hayvan-dili", "run", "serve" ]
+
+[services.env]
+PORT = "19979"
+BASE_PATH = "/hayvan-dili/"
