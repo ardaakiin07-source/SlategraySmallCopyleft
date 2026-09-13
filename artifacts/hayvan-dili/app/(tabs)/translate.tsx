@@ -23,14 +23,8 @@ import { useColors } from '@/hooks/useColors';
 
 const validAnimalIds: AnimalId[] = ['dog', 'cat', 'cow', 'chicken', 'sheep', 'goat'];
 
-const translationBank: Record<AnimalId, string[]> = {
-  dog: ['Açım ama önce biraz sevilmek istiyorum!', 'Bahçede çok önemli bir koku buldum, hemen gel!', 'Bugün birlikte oyun oynasak mı?', 'Sen gülünce kuyruğum kendi kendine sallanıyor!'],
-  cat: ['Mama kabım neden bu kadar uzakta duruyor?', 'Beni sev ama tam şu noktadan, lütfen.', 'Pencerenin dışında çok ilginç bir kuş var!', 'Bu evde en rahat yastık kesinlikle benim.'],
-  cow: ['Bugün çimenler gerçekten çok taze görünüyor.', 'Süt molası verelim, sonra uzun uzun sohbet ederiz.', 'Çiftlikte yeni bir arkadaş kokusu aldım.', 'Beni görünce gülümsemen çok hoşuma gidiyor.'],
-  chicken: ['Birazdan çok önemli bir gıdaklama yapacağım!', 'Yem kabında minik bir sürpriz var mı?', 'Bugün tüylerim harika görünüyor, değil mi?', 'Herkes hazırsa bahçede küçük bir tur atalım.'],
-  sheep: ['Yumuşacık bir sarılma için hazırım.', 'Bugün biraz dinlenip bulutları seyretmek istiyorum.', 'Sürünün en tatlı üyesi olduğumu biliyorsun.', 'Mee demek bazen kocaman bir merhaba demektir.'],
-  goat: ['Şu kutunun üstüne çıkmak çok iyi bir fikir!', 'Birlikte biraz zıplayıp eğlenelim mi?', 'Atıştırmalık varsa bütün kulaklar bende.', 'Bugün macera kokusu alıyorum, peşimden gel!'],
-};
+const MICROPHONE_PERMISSION_MESSAGE = 'Mikrofon izni verilmedi. Ses analizi için mikrofon erişimini açmalısın.';
+const SHORT_RECORDING_MESSAGE = 'Bu sesi analiz etmek için biraz daha uzun bir kayıt gerekiyor.';
 
 const toneForMessage = (text: string) => {
   const normalized = text.toLocaleLowerCase('tr-TR');
@@ -120,13 +114,15 @@ export default function TranslateScreen() {
   const [mode, setMode] = useState<'listen' | 'speak'>('listen');
   const [isRecording, setIsRecording] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [nativeRecording, setNativeRecording] = useState<Audio.Recording | null>(null);
   const [translation, setTranslation] = useState('');
   const [message, setMessage] = useState('');
   const [tone, setTone] = useState('');
   const [isPlaying, setIsPlaying] = useState(false);
   const [feedback, setFeedback] = useState('');
   const soundRef = useRef<Audio.Sound | null>(null);
+  const nativeRecordingRef = useRef<Audio.Recording | null>(null);
+  const recordingStartedAtRef = useRef<number | null>(null);
+  const recordingStartingRef = useRef(false);
 
   const topInset = Platform.OS === 'web' ? Math.max(insets.top, 67) : insets.top;
   const bottomInset = Platform.OS === 'web' ? Math.max(insets.bottom, 34) : insets.bottom;
@@ -138,62 +134,112 @@ export default function TranslateScreen() {
   useEffect(() => {
     return () => {
       soundRef.current?.unloadAsync().catch(() => undefined);
-      nativeRecording?.stopAndUnloadAsync().catch(() => undefined);
+      nativeRecordingRef.current?.stopAndUnloadAsync().catch(() => undefined);
+      nativeRecordingRef.current = null;
     };
-  }, [nativeRecording]);
-
-  const finishTranslation = () => {
-    setIsRecording(false);
-    setIsAnalyzing(true);
-    setFeedback('');
-    setTimeout(() => {
-      const options = translationBank[animalId];
-      const chosen = options[Math.floor(Math.random() * options.length)];
-      setTranslation(chosen);
-      setIsAnalyzing(false);
-    }, 1800);
-  };
+  }, []);
 
   const startRecording = async () => {
-    if (isRecording || isAnalyzing) return;
-
-    if (Platform.OS !== 'web') {
-      const permission = await Audio.requestPermissionsAsync();
-      if (!permission.granted) {
-        setFeedback('Mikrofon izni olmadan dostunu dinleyemem. Ayarlardan izin verebilirsin.');
-        return;
-      }
-    }
-
-    if (!isPremium && !consumeCredit()) {
-      setFeedback('Bugünkü ücretsiz hakların bitti. Daha çok konuşmak için Premium dostluğa geçebilirsin.');
-      return;
-    }
-
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setTranslation('');
-    setIsRecording(true);
+    if (isRecording || isAnalyzing || nativeRecordingRef.current || recordingStartingRef.current) return;
 
     if (Platform.OS === 'web') {
-      setTimeout(finishTranslation, 1400);
+      setFeedback('Gerçek ses kaydı iOS ve Android cihazlarda kullanılabilir.');
       return;
     }
 
-    await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-    const nextRecording = new Audio.Recording();
-    await nextRecording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-    await nextRecording.startAsync();
-    setNativeRecording(nextRecording);
+    recordingStartingRef.current = true;
+    try {
+      const permission = await Audio.requestPermissionsAsync();
+      if (!permission.granted) {
+        setFeedback(MICROPHONE_PERMISSION_MESSAGE);
+        return;
+      }
+
+      if (!isPremium && creditsRemaining <= 0) {
+        setFeedback('Bugünkü ücretsiz hakların bitti. Daha çok konuşmak için Premium dostluğa geçebilirsin.');
+        return;
+      }
+
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+      const nextRecording = new Audio.Recording();
+      await nextRecording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      await nextRecording.startAsync();
+
+      nativeRecordingRef.current = nextRecording;
+      recordingStartedAtRef.current = Date.now();
+      setTranslation('');
+      setFeedback('');
+      setIsRecording(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch (error) {
+      nativeRecordingRef.current = null;
+      recordingStartedAtRef.current = null;
+      setIsRecording(false);
+      setFeedback('Kayıt başlatılamadı. Lütfen tekrar dene.');
+      console.error('[Hayvan Dili] Kayıt başlatma hatası:', error);
+    } finally {
+      recordingStartingRef.current = false;
+    }
   };
 
   const stopRecording = async () => {
-    if (!isRecording) return;
+    const recording = nativeRecordingRef.current;
+    if (!isRecording || isAnalyzing || !recording) return;
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (nativeRecording) {
-      await nativeRecording.stopAndUnloadAsync();
-      setNativeRecording(null);
+    setIsAnalyzing(true);
+
+    const startedAt = recordingStartedAtRef.current;
+    const elapsedMillis = startedAt ? Date.now() - startedAt : 0;
+
+    try {
+      const status = await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+      const durationMillis = status.durationMillis || elapsedMillis;
+
+      nativeRecordingRef.current = null;
+      recordingStartedAtRef.current = null;
+      setIsRecording(false);
+      setIsAnalyzing(false);
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true }).catch(() => undefined);
+
+      if (!uri) {
+        setFeedback('Kayıt dosyası oluşturulamadı. Lütfen tekrar dene.');
+        return;
+      }
+
+      console.log('[Hayvan Dili] Native kayıt dosyası oluşturuldu:', {
+        uri,
+        durationMillis,
+      });
+
+      if (durationMillis < 1000) {
+        setTranslation('');
+        setFeedback(SHORT_RECORDING_MESSAGE);
+        return;
+      }
+
+      if (!isPremium && !consumeCredit()) {
+        setTranslation('');
+        setFeedback('Bugünkü ücretsiz hakların bitti. Daha çok konuşmak için Premium dostluğa geçebilirsin.');
+        return;
+      }
+
+      setFeedback('');
+      setTranslation(`Kayıt tamamlandı, dosya: ${uri}`);
+    } catch (error) {
+      nativeRecordingRef.current = null;
+      recordingStartedAtRef.current = null;
+      setIsRecording(false);
+      setIsAnalyzing(false);
+      console.error('[Hayvan Dili] Kayıt durdurma hatası:', error);
+
+      if (elapsedMillis < 1000) {
+        setFeedback(SHORT_RECORDING_MESSAGE);
+      } else {
+        setFeedback('Kayıt durdurulamadı. Lütfen tekrar dene.');
+      }
     }
-    finishTranslation();
   };
 
   const playReaction = async () => {
