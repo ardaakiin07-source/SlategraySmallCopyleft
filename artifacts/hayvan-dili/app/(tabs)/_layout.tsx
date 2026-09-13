@@ -17,7 +17,19 @@ function NativeTabLayout() {
     <NativeTabs>
       <NativeTabs.Trigger name="index">
         <Icon sf={{ default: 'house', selected: 'house.fill' }} />
-        <Label>Home</Label>
+        <Label>Dostlar</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="translate">
+        <Icon sf={{ default: 'waveform', selected: 'waveform' }} />
+        <Label>Konuş</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="premium">
+        <Icon sf={{ default: 'sparkles', selected: 'sparkles' }} />
+        <Label>Premium</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="profile">
+        <Icon sf={{ default: 'person.crop.circle', selected: 'person.crop.circle.fill' }} />
+        <Label>Profil</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
@@ -71,6 +83,27 @@ function ClassicTabLayout() {
             ) : (
               <Feather name="home" size={22} color={color} />
             ),
+        }}
+      />
+      <Tabs.Screen
+        name="translate"
+        options={{
+          title: 'Konuş',
+          tabBarIcon: ({ color }) => <Feather name="mic" size={22} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="premium"
+        options={{
+          title: 'Premium',
+          tabBarIcon: ({ color }) => <Feather name="star" size={22} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profil',
+          tabBarIcon: ({ color }) => <Feather name="user" size={22} color={color} />,
         }}
       />
     </Tabs>

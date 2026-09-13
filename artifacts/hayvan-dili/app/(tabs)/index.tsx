@@ -15,7 +15,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Ellipse, Line, Path } from 'react-native-svg';
+import { useRouter } from 'expo-router';
 import themeColors from '@/constants/colors';
+import { useApp } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
 
 type AnimalAccent = 'coral' | 'teal' | 'marigold' | 'lilac' | 'tangerine';
@@ -41,7 +43,6 @@ const animals: Animal[] = [
   { id: 'goat', name: 'Keçi', subtitle: 'Şakacı mee-ee', unlocked: false, accent: 'teal', iconName: 'goat' },
 ];
 
-const credits = { remaining: 12, total: 20 };
 const { width: screenWidth } = Dimensions.get('window');
 
 function MiniLogo({ colors }: { colors: Palette }) {
@@ -263,7 +264,9 @@ function AnimalCard({
 
 export default function TabOneScreen() {
   const colors = useColors();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { creditsRemaining, creditsTotal, isPremium } = useApp();
   const [selectedId, setSelectedId] = useState<AnimalId>('dog');
   const [lockedAnimal, setLockedAnimal] = useState<Animal | null>(null);
   const topInset = Platform.OS === 'web' ? Math.max(insets.top, 67) : insets.top;
@@ -278,6 +281,7 @@ export default function TabOneScreen() {
     }
     Haptics.selectionAsync();
     setSelectedId(animal.id);
+    router.push({ pathname: '/translate', params: { animalId: animal.id } });
   };
 
   return (
@@ -301,7 +305,7 @@ export default function TabOneScreen() {
             </View>
             <View>
               <Text style={[styles.creditValue, { color: colors.foreground }]}>
-                {credits.remaining} / {credits.total}
+                 {isPremium ? '∞' : `${creditsRemaining} / ${creditsTotal}`}
               </Text>
               <Text style={[styles.creditLabel, { color: colors.mutedForeground }]}>kredi</Text>
             </View>
