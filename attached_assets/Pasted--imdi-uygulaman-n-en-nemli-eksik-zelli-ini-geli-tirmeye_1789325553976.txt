@@ -1,0 +1,49 @@
+Şimdi uygulamanın en önemli eksik özelliğini geliştirmeye başla: GERÇEK AI DESTEKLİ HAYVAN SESİ ANALİZİ.
+
+Mevcut UI tasarımını bozma. Öncelikle mevcut ses kayıt sistemini gerçek bir AI analiz akışına dönüştür.
+
+İstediğim akış:
+
+1. Kullanıcı ana ekrandan bir hayvan seçsin.
+2. “Ne diyor?” ekranına gelsin.
+3. Mikrofon butonuna basarak gerçek ses kaydı yapsın.
+4. Kayıt gerçekten alınsın ve kayıt dosyasının URI’si elde edilsin.
+5. Ses dosyası backend’e güvenli şekilde gönderilsin.
+6. Backend ses dosyasını AI analiz sistemine gönderebilecek şekilde işlesin.
+7. AI, sesin özelliklerini ve bağlamını değerlendirerek eğlenceli bir yorum oluştursun.
+8. Sonuç kesin bir bilimsel hayvan dili çevirisi gibi gösterilmesin. Bunun eğlence amaçlı AI yorumu olduğu açıkça belirtilsin.
+9. Sonuç hayvan türüne göre oluşturulsun.
+10. Rastgele statik cümle seçme sistemini kaldır.
+11. Math.random() ile sonuç seçme mantığını kaldır.
+12. Kullanıcının gönderdiği ses ile sonuç arasında gerçek bir bağlantı kur.
+13. API anahtarlarını kesinlikle mobil uygulamanın içine koyma. Tüm gizli anahtarlar server-side environment variables/secrets üzerinden kullanılmalı.
+14. API hatası, internet olmaması, çok kısa kayıt, çok uzun kayıt, mikrofon izni reddi ve analiz başarısızlığı için kullanıcıya düzgün hata mesajları göster.
+15. Analiz sırasında mevcut animasyonu koru ancak gerçek API cevabını bekle.
+16. Başarılı sonuçtan sonra sonucu mevcut konuşma balonunda göster.
+17. Çeviri geçmişine sonucu kaydet.
+18. Her başarılı analizde kredi sistemini yalnızca işlem başarıyla tamamlandıktan sonra düşür.
+19. API isteği başarısız olursa kredi tüketilmesin.
+20. Kullanıcı aynı anda birden fazla analiz başlatamasın.
+
+Önemli:
+
+Önce projeyi ve mevcut Expo/React Native mimarisini incele. Mevcut yapıyı gereksiz yere bozma.
+
+Kullanılacak AI/ses analiz teknolojisini sen seçebilirsin ancak seçimin nedenini açıkla ve ücretsiz/uygun maliyetli bir geliştirme çözümünü tercih et.
+
+Eğer doğrudan hayvan sesini “insan diline çeviren” güvenilir bir AI modeli teknik olarak mümkün değilse bunu sahte şekilde yapma. Bunun yerine gerçek ses analizi + hayvan türü + ses özellikleri + bağlam üzerinden eğlenceli AI yorumu üret.
+
+İlk aşamada kodu değiştirmeden önce bana:
+
+* hangi AI/API kullanılacağını,
+* neden seçildiğini,
+* backend’de hangi endpointlerin oluşturulacağını,
+* mobil uygulamadan backend’e veri akışını,
+* yaklaşık API maliyetini,
+* hangi environment secret’larının gerektiğini
+
+açıkla.
+
+Sonra uygulamayı değiştirmeye geç.
+
+Mevcut UI tasarımını koru.
