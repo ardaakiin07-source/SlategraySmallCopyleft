@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { animalAnalysis } from '@workspace/api-client-react';
 
 import { AnimalMascot, animalInfo, type AnimalId, type MascotPalette } from '@/components/AnimalMascot';
 import { useApp } from '@/context/AppContext';
@@ -25,6 +26,12 @@ const validAnimalIds: AnimalId[] = ['dog', 'cat', 'cow', 'chicken', 'sheep', 'go
 
 const MICROPHONE_PERMISSION_MESSAGE = 'Mikrofon izni verilmedi. Ses analizi için mikrofon erişimini açmalısın.';
 const SHORT_RECORDING_MESSAGE = 'Bu sesi analiz etmek için biraz daha uzun bir kayıt gerekiyor.';
+const ANALYSIS_ERROR_MESSAGES: Record<string, string> = {
+  INVALID_ANIMAL: 'Bu hayvan için analiz yapılamadı. Lütfen dostunu tekrar seç.',
+  INVALID_FILE_TYPE: 'Bu ses dosyası desteklenmiyor. Lütfen tekrar kayıt yap.',
+  FILE_TOO_LARGE: 'Kayıt çok uzun. Lütfen daha kısa bir ses kaydet.',
+  AI_ANALYSIS_FAILED: 'Dostun şu an sesini çözemedi. Lütfen tekrar dene.',
+};
 
 const toneForMessage = (text: string) => {
   const normalized = text.toLocaleLowerCase('tr-TR');
@@ -33,6 +40,30 @@ const toneForMessage = (text: string) => {
   if (normalized.includes('sakin') || normalized.includes('korkma')) return 'sakinleştirici';
   return 'sevgi dolu';
 };
+
+function getRecordingMimeType(uri: string) {
+  const normalizedUri = uri.toLocaleLowerCase('en-US');
+  if (normalizedUri.endsWith('.m4a')) return 'audio/mp4';
+  if (normalizedUri.endsWith('.3gp')) return 'audio/3gpp';
+  if (normalizedUri.endsWith('.caf')) return 'audio/x-caf';
+  if (normalizedUri.endsWith('.wav')) return 'audio/wav';
+  if (normalizedUri.endsWith('.ogg') || normalizedUri.endsWith('.oga')) return 'audio/ogg';
+  if (normalizedUri.endsWith('.mp3')) return 'audio/mpeg';
+  return 'audio/mp4';
+}
+
+function getAudioFileName(uri: string) {
+  const fileName = uri.split(/[\\/]/).pop();
+  return fileName && fileName.includes('.') ? fileName : `hayvan-kaydi-${Date.now()}.m4a`;
+}
+
+function getAnalysisErrorCode(error: unknown) {
+  if (!error || typeof error !== 'object') return null;
+  const data = (error as { data?: unknown }).data;
+  if (!data || typeof data !== 'object') return null;
+  const code = (data as { error?: unknown }).error;
+  return typeof code === 'string' ? code : null;
+}
 
 function Pulse({ colors, active }: { colors: MascotPalette; active: boolean }) {
   const pulse = useRef(new Animated.Value(0)).current;
@@ -115,6 +146,8 @@ export default function TranslateScreen() {
   const [isRecording, setIsRecording] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [translation, setTranslation] = useState('');
+  const [analysisMood, setAnalysisMood] = useState('');
+  const [disclaimer, setDisclaimer] = useState('');
   const [message, setMessage] = useState('');
   const [tone, setTone] = useState('');
   const [isPlaying, setIsPlaying] = useState(false);
@@ -168,6 +201,8 @@ export default function TranslateScreen() {
       nativeRecordingRef.current = nextRecording;
       recordingStartedAtRef.current = Date.now();
       setTranslation('');
+      setAnalysisMood('');
+      setDisclaimer('');
       setFeedback('');
       setIsRecording(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -200,10 +235,10 @@ export default function TranslateScreen() {
       nativeRecordingRef.current = null;
       recordingStartedAtRef.current = null;
       setIsRecording(false);
-      setIsAnalyzing(false);
       await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true }).catch(() => undefined);
 
       if (!uri) {
+        setIsAnalyzing(false);
         setFeedback('Kayıt dosyası oluşturulamadı. Lütfen tekrar dene.');
         return;
       }
@@ -214,19 +249,57 @@ export default function TranslateScreen() {
       });
 
       if (durationMillis < 1000) {
+        setIsAnalyzing(false);
         setTranslation('');
         setFeedback(SHORT_RECORDING_MESSAGE);
         return;
       }
 
-      if (!isPremium && !consumeCredit()) {
+      if (!isPremium && creditsRemaining <= 0) {
+        setIsAnalyzing(false);
         setTranslation('');
         setFeedback('Bugünkü ücretsiz hakların bitti. Daha çok konuşmak için Premium dostluğa geçebilirsin.');
         return;
       }
 
-      setFeedback('');
-      setTranslation(`Kayıt tamamlandı, dosya: ${uri}`);
+      const audio = {
+        uri,
+        type: getRecordingMimeType(uri),
+        name: getAudioFileName(uri),
+      };
+
+      try {
+        const response = await animalAnalysis({
+          audio: audio as unknown as Blob,
+          animalId,
+          locale: 'tr',
+        });
+
+        if (!response.interpretation || !response.mood) {
+          throw new Error('Animal analysis response is incomplete');
+        }
+
+        if (!isPremium) {
+          consumeCredit();
+        }
+
+        setTranslation(response.interpretation);
+        setAnalysisMood(response.mood);
+        setDisclaimer(response.disclaimer ?? '');
+        setFeedback('');
+      } catch (error) {
+        const errorCode = getAnalysisErrorCode(error);
+        setTranslation('');
+        setAnalysisMood('');
+        setDisclaimer('');
+        setFeedback(
+          (errorCode && ANALYSIS_ERROR_MESSAGES[errorCode]) ||
+            'Ses analizi başarısız oldu. Lütfen tekrar dene.',
+        );
+        console.error('[Hayvan Dili] Backend analiz hatası:', error);
+      } finally {
+        setIsAnalyzing(false);
+      }
     } catch (error) {
       nativeRecordingRef.current = null;
       recordingStartedAtRef.current = null;

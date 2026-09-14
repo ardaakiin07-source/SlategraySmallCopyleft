@@ -14,9 +14,13 @@ import {
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { AppProvider } from '@/context/AppContext';
+import { setBaseUrl } from '@workspace/api-client-react';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
+
+const apiDomain = process.env.EXPO_PUBLIC_DOMAIN;
+setBaseUrl(apiDomain ? (apiDomain.startsWith('http') ? apiDomain : `https://${apiDomain}`) : null);
 
 const queryClient = new QueryClient();
 
