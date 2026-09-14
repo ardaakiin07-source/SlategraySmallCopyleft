@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: animal-analysis
+    description: Animal audio analysis operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,45 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /animal-analysis:
+    post:
+      operationId: animalAnalysis
+      tags: [animal-analysis]
+      summary: Validate an animal audio recording
+      description: Accepts an audio recording and returns a temporary mock analysis response.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - audio
+                - animalId
+                - locale
+              properties:
+                audio:
+                  type: string
+                  format: binary
+                animalId:
+                  type: string
+                  enum: [dog, cat, cow, chicken, sheep, goat]
+                locale:
+                  type: string
+                  enum: [tr]
+      responses:
+        "200":
+          description: Audio accepted and validated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnimalAnalysisResponse"
+        "400":
+          description: Invalid request or file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnimalAnalysisError"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +74,33 @@ components:
           type: string
       required:
         - status
+    AnimalAnalysisResponse:
+      type: object
+      properties:
+        analysisId:
+          type: string
+        animalId:
+          type: string
+          enum: [dog, cat, cow, chicken, sheep, goat]
+        interpretation:
+          type: string
+        mood:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - analysisId
+        - animalId
+        - interpretation
+        - mood
+        - createdAt
+    AnimalAnalysisError:
+      type: object
+      properties:
+        error:
+          type: string
+          enum: [FILE_TOO_LARGE, INVALID_ANIMAL, INVALID_FILE_TYPE, INVALID_LOCALE]
+      required:
+        - error
 
