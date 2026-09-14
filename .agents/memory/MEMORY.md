@@ -1,0 +1,1 @@
+- [Gemini model availability](gemini-model-availability.md) — new API keys may reject older Gemini models and require the provider’s active replacement.

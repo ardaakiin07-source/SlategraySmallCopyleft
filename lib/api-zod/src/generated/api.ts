@@ -32,6 +32,7 @@ export const AnimalAnalysisResponse = zod.object({
   "animalId": zod.enum(['dog', 'cat', 'cow', 'chicken', 'sheep', 'goat']),
   "interpretation": zod.string(),
   "mood": zod.string(),
+  "disclaimer": zod.string(),
   "createdAt": zod.coerce.date()
 })
 

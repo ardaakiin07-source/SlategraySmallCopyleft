@@ -26,6 +26,7 @@ export interface AnimalAnalysisResponse {
   animalId: AnimalAnalysisResponseAnimalId;
   interpretation: string;
   mood: string;
+  disclaimer: string;
   createdAt: string;
 }
 
