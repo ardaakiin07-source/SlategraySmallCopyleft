@@ -167,7 +167,25 @@ async function analyzeAudioWithGemini(
     clearTimeout(timeout);
   }
 }
-
+   async function analyzeWithRetry(
+     audio: Express.Multer.File,
+     animalId: string,
+   ): Promise<GeminiAnalysis> {
+     const maxAttempts = 3;
+     let lastError: unknown;
+     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+       try {
+         return await analyzeAudioWithGemini(audio, animalId);
+       } catch (error) {
+         lastError = error;
+         const message = error instanceof Error ? error.message : "";
+         const retryable = message.includes("status 503") || message.includes("status 429");
+         if (!retryable || attempt === maxAttempts) break;
+         await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+       }
+     }
+     throw lastError;
+   }
 router.post(
   "/animal-analysis",
   (req, res, next) => {
@@ -204,7 +222,7 @@ router.post(
       return;
     }
 
-    void analyzeAudioWithGemini(req.file, animalId)
+    void analyzeWithRetry(req.file, animalId)
       .then(({ interpretation, mood }) => {
         res.status(200).json({
           analysisId: randomUUID(),
