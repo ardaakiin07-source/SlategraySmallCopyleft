@@ -20,11 +20,20 @@ const uploadAudio = multer({
   },
 });
 
-const ANALYSIS_PROMPT = `Bu ses kaydı için Türkçe, eğlence amaçlı bir hayvan sesi yorumu üret.
-Bu bilimsel bir çeviri değildir. Yalnızca sesin tonuna, enerjisine, ritmine ve tekrar yapısına
-dayalı olası bir yorum yap. Kesin iddialarda bulunma ve "kesinlikle şunu söyledi" gibi ifadeler
-kullanma; bunun yerine "... istiyor olabilir", "... anlatıyor gibi duyuluyor" veya
-"muhtemelen ... ifade ediyor" gibi ihtimalli bir dil kullan.
+const ANALYSIS_PROMPT = `Bu bir eğlence uygulaması. Görevin, gönderilen ses kaydı için seçilen hayvanın
+ağzından Türkçe, komik ve sevimli bir yorum üretmek.
+
+ÇOK ÖNEMLİ KURALLAR:
+- Ses ne olursa olsun (gerçek hayvan sesi, insan sesi, müzik, gürültü, rüzgâr, sessizlik, belirsiz bir ses)
+  MUTLAKA eğlenceli bir yorum üret.
+- Asla "bu bir hayvan sesi değil", "ses anlaşılamadı", "bir şey duyamadım" veya "yorum yapamam" gibi
+  bir cevap verme. Ses hayvana benzemese bile hayvanın bu sese verdiği tepkiyi ya da ne hissettiğini
+  eğlenceli şekilde yorumla.
+- Sesin tonuna, enerjisine, ritmine ve tekrar yapısına dayan. Ses sessiz ya da belirsizse bunu
+  hayvanın sakin, düşünceli veya meraklı olmasına yor.
+- Bu bilimsel bir çeviri değildir. Kesin iddialarda bulunma; "... istiyor olabilir",
+  "... anlatıyor gibi duyuluyor" veya "muhtemelen ... ifade ediyor" gibi ihtimalli bir dil kullan.
+- Yorum kısa olsun (en fazla 2-3 cümle), pozitif ve eğlenceli olsun.
 
 Yanıtı yalnızca geçerli JSON olarak döndür, markdown kullanma:
 {
@@ -167,25 +176,27 @@ async function analyzeAudioWithGemini(
     clearTimeout(timeout);
   }
 }
-   async function analyzeWithRetry(
-     audio: Express.Multer.File,
-     animalId: string,
-   ): Promise<GeminiAnalysis> {
-     const maxAttempts = 3;
-     let lastError: unknown;
-     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-       try {
-         return await analyzeAudioWithGemini(audio, animalId);
-       } catch (error) {
-         lastError = error;
-         const message = error instanceof Error ? error.message : "";
-         const retryable = message.includes("status 503") || message.includes("status 429");
-         if (!retryable || attempt === maxAttempts) break;
-         await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
-       }
-     }
-     throw lastError;
-   }
+
+async function analyzeWithRetry(
+  audio: Express.Multer.File,
+  animalId: string,
+): Promise<GeminiAnalysis> {
+  const maxAttempts = 3;
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await analyzeAudioWithGemini(audio, animalId);
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : "";
+      const retryable = message.includes("status 503") || message.includes("status 429");
+      if (!retryable || attempt === maxAttempts) break;
+      await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+    }
+  }
+  throw lastError;
+}
+
 router.post(
   "/animal-analysis",
   (req, res, next) => {
