@@ -1,4 +1,12 @@
-import { Audio } from 'expo-av';
+   import { File } from 'expo-file-system';
+   import {
+  AudioModule,
+  RecordingPresets,
+  createAudioPlayer,
+  setAudioModeAsync,
+  useAudioRecorder,
+  type AudioPlayer,
+} from 'expo-audio';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -22,7 +30,7 @@ import { AnimalMascot, animalInfo, type AnimalId, type MascotPalette } from '@/c
 import { useApp } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
 
-const validAnimalIds: AnimalId[] = ['dog', 'cat', 'cow', 'chicken', 'sheep', 'goat'];
+const validAnimalIds: AnimalId[] = ['dog', 'cat'];
 
 const MICROPHONE_PERMISSION_MESSAGE = 'Mikrofon izni verilmedi. Ses analizi için mikrofon erişimini açmalısın.';
 const SHORT_RECORDING_MESSAGE = 'Bu sesi analiz etmek için biraz daha uzun bir kayıt gerekiyor.';
@@ -133,7 +141,34 @@ function ModeSwitch({
     </View>
   );
 }
-
+   const REACTION_SOUNDS: Record<string, number[]> = {
+     dog: [
+       require('../../assets/audio/dog1.mp3'),
+       require('../../assets/audio/dog2.mp3'),
+       require('../../assets/audio/dog3.mp3'),
+       require('../../assets/audio/dog4.mp3'),
+       require('../../assets/audio/dog5.mp3'),
+       require('../../assets/audio/dog6.mp3'),
+       require('../../assets/audio/dog7.mp3'),
+     ],
+     cat: [
+       require('../../assets/audio/cat1.mp3'),
+       require('../../assets/audio/cat2.mp3'),
+       require('../../assets/audio/cat3.mp3'),
+       require('../../assets/audio/cat4.mp3'),
+       require('../../assets/audio/cat5.mp3'),
+       require('../../assets/audio/cat6.mp3'),
+       require('../../assets/audio/cat7.mp3'),
+     ],
+   };
+      function pickSound(sounds: number[], text: string) {
+     const clean = text.trim().toLowerCase();
+     let hash = 0;
+     for (let i = 0; i < clean.length; i++) {
+       hash = (hash * 31 + clean.charCodeAt(i)) % 1000003;
+     }
+     return sounds[hash % sounds.length];
+   }
 export default function TranslateScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -152,8 +187,8 @@ export default function TranslateScreen() {
   const [tone, setTone] = useState('');
   const [isPlaying, setIsPlaying] = useState(false);
   const [feedback, setFeedback] = useState('');
-  const soundRef = useRef<Audio.Sound | null>(null);
-  const nativeRecordingRef = useRef<Audio.Recording | null>(null);
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const playerRef = useRef<AudioPlayer | null>(null);
   const recordingStartedAtRef = useRef<number | null>(null);
   const recordingStartingRef = useRef(false);
 
@@ -166,14 +201,17 @@ export default function TranslateScreen() {
 
   useEffect(() => {
     return () => {
-      soundRef.current?.unloadAsync().catch(() => undefined);
-      nativeRecordingRef.current?.stopAndUnloadAsync().catch(() => undefined);
-      nativeRecordingRef.current = null;
+      try {
+        playerRef.current?.remove();
+      } catch {
+        // ignore
+      }
+      playerRef.current = null;
     };
   }, []);
 
   const startRecording = async () => {
-    if (isRecording || isAnalyzing || nativeRecordingRef.current || recordingStartingRef.current) return;
+    if (isRecording || isAnalyzing || recordingStartingRef.current) return;
 
     if (Platform.OS === 'web') {
       setFeedback('Gerçek ses kaydı iOS ve Android cihazlarda kullanılabilir.');
@@ -182,7 +220,7 @@ export default function TranslateScreen() {
 
     recordingStartingRef.current = true;
     try {
-      const permission = await Audio.requestPermissionsAsync();
+      const permission = await AudioModule.requestRecordingPermissionsAsync();
       if (!permission.granted) {
         setFeedback(MICROPHONE_PERMISSION_MESSAGE);
         return;
@@ -193,12 +231,10 @@ export default function TranslateScreen() {
         return;
       }
 
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-      const nextRecording = new Audio.Recording();
-      await nextRecording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-      await nextRecording.startAsync();
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await recorder.prepareToRecordAsync();
+      recorder.record();
 
-      nativeRecordingRef.current = nextRecording;
       recordingStartedAtRef.current = Date.now();
       setTranslation('');
       setAnalysisMood('');
@@ -207,7 +243,6 @@ export default function TranslateScreen() {
       setIsRecording(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch (error) {
-      nativeRecordingRef.current = null;
       recordingStartedAtRef.current = null;
       setIsRecording(false);
       setFeedback('Kayıt başlatılamadı. Lütfen tekrar dene.');
@@ -218,8 +253,7 @@ export default function TranslateScreen() {
   };
 
   const stopRecording = async () => {
-    const recording = nativeRecordingRef.current;
-    if (!isRecording || isAnalyzing || !recording) return;
+    if (!isRecording || isAnalyzing) return;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setIsAnalyzing(true);
@@ -228,14 +262,13 @@ export default function TranslateScreen() {
     const elapsedMillis = startedAt ? Date.now() - startedAt : 0;
 
     try {
-      const status = await recording.stopAndUnloadAsync();
-      const uri = recording.getURI();
-      const durationMillis = status.durationMillis || elapsedMillis;
+      await recorder.stop();
+      const uri = recorder.uri;
+      const durationMillis = recorder.getStatus().durationMillis || elapsedMillis;
 
-      nativeRecordingRef.current = null;
       recordingStartedAtRef.current = null;
       setIsRecording(false);
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true }).catch(() => undefined);
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => undefined);
 
       if (!uri) {
         setIsAnalyzing(false);
@@ -262,11 +295,7 @@ export default function TranslateScreen() {
         return;
       }
 
-      const audio = {
-        uri,
-        type: getRecordingMimeType(uri),
-        name: getAudioFileName(uri),
-      };
+              const audio = new File(uri);
 
       try {
         const response = await animalAnalysis({
@@ -301,7 +330,6 @@ export default function TranslateScreen() {
         setIsAnalyzing(false);
       }
     } catch (error) {
-      nativeRecordingRef.current = null;
       recordingStartedAtRef.current = null;
       setIsRecording(false);
       setIsAnalyzing(false);
@@ -317,10 +345,14 @@ export default function TranslateScreen() {
 
   const playReaction = async () => {
     try {
-      await soundRef.current?.unloadAsync();
-      const { sound } = await Audio.Sound.createAsync(require('../../assets/audio/pet-reaction.wav'));
-      soundRef.current = sound;
-      await sound.playAsync();
+      playerRef.current?.remove();
+      const sounds = REACTION_SOUNDS[animalId];
+const source = sounds
+   ? pickSound(sounds, message)
+  : require('../../assets/audio/pet-reaction.wav');
+const player = createAudioPlayer(source);
+      playerRef.current = player;
+      player.play();
       setTimeout(() => setIsPlaying(false), 1200);
     } catch {
       setTimeout(() => setIsPlaying(false), 1000);

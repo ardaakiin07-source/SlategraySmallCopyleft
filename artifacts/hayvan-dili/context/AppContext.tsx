@@ -2,26 +2,50 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 export type Language = 'Türkçe' | 'English';
+export type PetType = 'dog' | 'cat';
+
+export type Pet = {
+  id: string;
+  type: PetType;
+  name: string;
+  breed: string;
+};
 
 export type AppState = {
   displayName: string;
   language: Language;
   isPremium: boolean;
+  // creditsRemaining = kalan jeton sayısı
   creditsRemaining: number;
   creditsTotal: number;
+  // lastCreditDate = günlük bonus jetonunun son verildiği gün
   lastCreditDate: string;
   creditHistory: number[];
+  pets: Pet[];
+  activePetId: string | null;
 };
 
 type AppContextValue = AppState & {
+  isReady: boolean;
+  pet: Pet | null;
   consumeCredit: () => boolean;
+  addCredits: (amount: number) => void;
   activatePremium: () => void;
   updateDisplayName: (value: string) => void;
   toggleLanguage: () => void;
+  addPet: (input: { type: PetType; name: string; breed: string }) => void;
 };
 
 const STORAGE_KEY = '@hayvan-dili/app-state';
-const DAILY_CREDITS = 5;
+
+// ---- JETON AYARLARI (sayıları buradan değiştirebilirsin) ----
+// Yeni kullanıcıya hediye jeton sayısı
+const START_TOKENS = 5;
+// Her gün uygulamayı açana verilen bonus jeton
+const DAILY_BONUS = 1;
+// Günlük bonus sadece jeton sayısı bu sayının altındaysa verilir
+const DAILY_BONUS_LIMIT = 5;
+// --------------------------------------------------------------
 
 const getDayKey = () => {
   const now = new Date();
@@ -32,16 +56,19 @@ const initialState: AppState = {
   displayName: '',
   language: 'Türkçe',
   isPremium: false,
-  creditsRemaining: DAILY_CREDITS,
-  creditsTotal: DAILY_CREDITS,
+  creditsRemaining: START_TOKENS,
+  creditsTotal: START_TOKENS,
   lastCreditDate: getDayKey(),
   creditHistory: [],
+  pets: [],
+  activePetId: null,
 };
 
 const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>(initialState);
+  const [isReady, setIsReady] = useState(false);
   const hydrated = useRef(false);
 
   useEffect(() => {
@@ -50,14 +77,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (!stored) return;
         const parsed = JSON.parse(stored) as Partial<AppState>;
         const today = getDayKey();
-        const sameDay = parsed.lastCreditDate === today;
+        let balance = parsed.creditsRemaining ?? START_TOKENS;
+
+        // Yeni gün başladıysa ve jeton azsa günlük bonus ver
+        if (!parsed.isPremium && parsed.lastCreditDate !== today && balance < DAILY_BONUS_LIMIT) {
+          balance = Math.min(balance + DAILY_BONUS, DAILY_BONUS_LIMIT);
+        }
+
         setState({
           ...initialState,
           ...parsed,
           lastCreditDate: today,
-          creditsRemaining:
-            parsed.isPremium || sameDay ? (parsed.creditsRemaining ?? DAILY_CREDITS) : DAILY_CREDITS,
-          creditsTotal: parsed.isPremium ? 9999 : DAILY_CREDITS,
+          creditsRemaining: balance,
+          creditsTotal: parsed.isPremium ? 9999 : Math.max(balance, START_TOKENS),
         });
       })
       .catch(() => {
@@ -65,6 +97,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       })
       .finally(() => {
         hydrated.current = true;
+        setIsReady(true);
       });
   }, []);
 
@@ -76,6 +109,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<AppContextValue>(
     () => ({
       ...state,
+      isReady,
+      pet: state.pets.find((item) => item.id === state.activePetId) ?? state.pets[0] ?? null,
       consumeCredit: () => {
         if (state.isPremium) return true;
         if (state.creditsRemaining <= 0) return false;
@@ -85,6 +120,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           creditHistory: [Date.now(), ...current.creditHistory].slice(0, 20),
         }));
         return true;
+      },
+      // Jeton ekler (satın alma ekranı bunu kullanacak)
+      addCredits: (amount: number) => {
+        if (amount <= 0) return;
+        setState((current) => {
+          if (current.isPremium) return current;
+          const balance = current.creditsRemaining + amount;
+          return {
+            ...current,
+            creditsRemaining: balance,
+            creditsTotal: Math.max(current.creditsTotal, balance),
+          };
+        });
       },
       activatePremium: () => {
         setState((current) => ({
@@ -103,8 +151,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           language: current.language === 'Türkçe' ? 'English' : 'Türkçe',
         }));
       },
+      addPet: (input) => {
+        const newPet: Pet = {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          type: input.type,
+          name: input.name,
+          breed: input.breed,
+        };
+        setState((current) => ({
+          ...current,
+          pets: [...current.pets, newPet],
+          activePetId: newPet.id,
+        }));
+      },
     }),
-    [state],
+    [state, isReady],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
