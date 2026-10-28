@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
@@ -18,7 +18,7 @@ import { useRouter } from 'expo-router';
 import themeColors from '@/constants/colors';
 import { useApp } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
-
+import PetStrip from '@/components/PetStrip';
 type AnimalAccent = 'coral' | 'marigold';
 type AnimalId = 'dog' | 'cat';
 
@@ -30,11 +30,42 @@ type Animal = {
   iconName: AnimalId;
 };
 
+type Fact = {
+  emoji: string;
+  text: string;
+};
+
 type Palette = ReturnType<typeof useColors>;
 
 const animals: Animal[] = [
   { id: 'dog', name: 'Köpek', subtitle: 'Neşeli hav hav', accent: 'coral', iconName: 'dog' },
   { id: 'cat', name: 'Kedi', subtitle: 'Meraklı miyav', accent: 'marigold', iconName: 'cat' },
+];
+
+// Biliyor muydun: her 30 saniyede bir sıradaki bilgi gösterilir
+const FACT_INTERVAL_MS = 30000;
+
+const FUN_FACTS: Fact[] = [
+  { emoji: '🐶', text: 'Köpeklerin burun izi, insan parmak izi gibi her köpekte farklıdır.' },
+  { emoji: '🐱', text: 'Kediler insanlarla genellikle miyavlayarak iletişim kurar.' },
+  { emoji: '🐶', text: 'Köpeklerin koku alma duyusu, insanınkinden çok daha güçlüdür.' },
+  { emoji: '🐱', text: 'Kedi mırlaması her zaman mutluluk demek değildir, bazen stresliyken de mırlayabilirler.' },
+  { emoji: '🐶', text: 'Köpekler, insanların duyamadığı yüksek frekanslı sesleri de duyabilir.' },
+  { emoji: '🐱', text: 'Kediler günün büyük bölümünü uyuyarak geçirir.' },
+  { emoji: '🐶', text: 'Köpek kuyruk sallıyorsa her zaman mutlu demek değildir. Kuyruğun duruşu da önemlidir.' },
+  { emoji: '🐱', text: 'Kedinin yavaş göz kırpması çoğu zaman rahat ve güvende olduğunu gösterir.' },
+  { emoji: '🐶', text: 'Köpekler esneyerek bazen gerginliklerini de belli edebilir.' },
+  { emoji: '🐱', text: 'Kedinin kuyruğu dik duruyorsa genelde selam veriyor demektir.' },
+  { emoji: '🐶', text: 'Köpek yavruları doğduklarında duyamaz, ilk günlerde dünyayı koku ve dokunmayla tanırlar.' },
+  { emoji: '🐱', text: 'Kediler tırmalayarak hem pençelerini bakımlı tutar hem de bölgesini işaretler.' },
+  { emoji: '🐶', text: 'Köpekler, sahiplerinin yüz ifadelerinden ruh halini anlamayı öğrenebilir.' },
+  { emoji: '🐱', text: 'Kedilerin bıyıkları, dar yerlerden geçip geçemeyeceklerini anlamalarına yardım eder.' },
+  { emoji: '🐶', text: 'Köpeklerin ıslak burnu, havadaki kokuları daha iyi yakalamalarına yardımcı olur.' },
+  { emoji: '🐱', text: 'Kedilerin burun izi de tıpkı parmak izi gibi her kedide farklıdır.' },
+  { emoji: '🐶', text: 'Yetişkin bir köpek günün yaklaşık yarısını uyuyarak geçirebilir.' },
+  { emoji: '🐱', text: 'Kediler karanlıkta insanlardan çok daha iyi görür.' },
+  { emoji: '🐶', text: 'Köpekler bazen kuyruğunu sağa ya da sola daha çok sallayarak farklı duygular gösterir.' },
+  { emoji: '🐱', text: 'Kediler yüksekten düşerken havada dönerek ayakları üstüne inmeyi çoğu zaman başarır.' },
 ];
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -184,16 +215,61 @@ export default function TabOneScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { creditsRemaining, creditsTotal, isPremium } = useApp();
+  const { creditsRemaining, isPremium, pet, canClaimDailyBonus, claimDailyBonus, hapticsEnabled } = useApp();
   const [selectedId, setSelectedId] = useState<AnimalId>('dog');
+  const [factIndex, setFactIndex] = useState(
+    () => Math.floor(Date.now() / 86400000) % FUN_FACTS.length,
+  );
+  const factOpacity = useRef(new Animated.Value(1)).current;
   const topInset = Platform.OS === 'web' ? Math.max(insets.top, 67) : insets.top;
   const bottomInset = Platform.OS === 'web' ? Math.max(insets.bottom, 34) : insets.bottom;
   const cardWidth = screenWidth < 380 ? '47.5%' : '48%';
+  const quickAnimalId: AnimalId = pet?.type ?? selectedId;
+  const currentFact = FUN_FACTS[factIndex];
+
+  // Her 30 saniyede bir yeni bilgi: önce yumuşakça kaybolur, sonra yenisi belirir
+  useEffect(() => {
+    const timer = setInterval(() => {
+      Animated.timing(factOpacity, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: Platform.OS !== 'web',
+      }).start(() => {
+        setFactIndex((current) => (current + 1) % FUN_FACTS.length);
+        Animated.timing(factOpacity, {
+          toValue: 1,
+          duration: 350,
+          useNativeDriver: Platform.OS !== 'web',
+        }).start();
+      });
+    }, FACT_INTERVAL_MS);
+
+    return () => clearInterval(timer);
+  }, [factOpacity]);
 
   const selectAnimal = (animal: Animal) => {
-    Haptics.selectionAsync();
+    if (hapticsEnabled) Haptics.selectionAsync();
     setSelectedId(animal.id);
     router.push({ pathname: '/translate', params: { animalId: animal.id } });
+  };
+
+  const openTranslate = (mode: 'listen' | 'speak') => {
+    if (hapticsEnabled) Haptics.selectionAsync();
+    router.push({
+      pathname: '/translate',
+      params: { animalId: quickAnimalId, mode, t: String(Date.now()) },
+    });
+  };
+
+  const openPremium = () => {
+    if (hapticsEnabled) Haptics.selectionAsync();
+    router.push('/premium');
+  };
+
+  const handleClaimBonus = () => {
+    if (claimDailyBonus() && hapticsEnabled) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
   };
 
   return (
@@ -211,17 +287,29 @@ export default function TabOneScreen() {
               <Text style={[styles.brandKicker, { color: colors.mutedForeground }]}>minik dostların sözlüğü</Text>
             </View>
           </View>
-          <View testID="credit-badge" style={[styles.creditBadge, { backgroundColor: colors.whiteWarm, borderColor: colors.border }]}>
+          <Pressable
+            testID="credit-badge"
+            accessibilityRole="button"
+            accessibilityLabel="Jeton al"
+            onPress={openPremium}
+            style={({ pressed }) => [
+              styles.creditBadge,
+              { backgroundColor: colors.whiteWarm, borderColor: colors.border, opacity: pressed ? 0.8 : 1 },
+            ]}
+          >
             <View style={[styles.creditIcon, { backgroundColor: colors.marigold }]}>
               <Feather name="star" size={13} color={colors.accentForeground} />
             </View>
             <View>
               <Text style={[styles.creditValue, { color: colors.foreground }]}>
-                {isPremium ? '∞' : `${creditsRemaining} / ${creditsTotal}`}
+                {isPremium ? '∞' : `${creditsRemaining}`}
               </Text>
-              <Text style={[styles.creditLabel, { color: colors.mutedForeground }]}>kredi</Text>
+              <Text style={[styles.creditLabel, { color: colors.mutedForeground }]}>jeton</Text>
             </View>
-          </View>
+            <View style={[styles.creditPlus, { backgroundColor: colors.coral }]}>
+              <Feather name="plus" size={12} color={colors.primaryForeground} />
+            </View>
+          </Pressable>
         </View>
 
         <LinearGradient
@@ -255,6 +343,52 @@ export default function TabOneScreen() {
             </View>
           </View>
         </LinearGradient>
+        <PetStrip />
+        {/* Dostumun kartı */}
+        {pet ? (
+          <View style={[styles.petCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.petAvatar, { backgroundColor: colors.teal + '26' }]}>
+              <AnimalMascot animal={pet.type} colors={colors} size={64} />
+            </View>
+            <View style={styles.petCopy}>
+              <Text style={[styles.petKicker, { color: colors.tealDeep }]}>DOSTUM</Text>
+              <Text style={[styles.petName, { color: colors.foreground }]}>{pet.name}</Text>
+              {pet.breed ? (
+                <Text style={[styles.petBreed, { color: colors.mutedForeground }]}>{pet.breed}</Text>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
+
+        {/* Hızlı butonlar */}
+        <View style={styles.quickRow}>
+          <Pressable
+            testID="quick-listen"
+            accessibilityRole="button"
+            accessibilityLabel="Ne diyor?"
+            onPress={() => openTranslate('listen')}
+            style={({ pressed }) => [
+              styles.quickButton,
+              { backgroundColor: colors.coral, transform: [{ scale: pressed ? 0.96 : 1 }] },
+            ]}
+          >
+            <Feather name="mic" size={22} color={colors.primaryForeground} />
+            <Text style={[styles.quickText, { color: colors.primaryForeground }]}>Ne diyor?</Text>
+          </Pressable>
+          <Pressable
+            testID="quick-speak"
+            accessibilityRole="button"
+            accessibilityLabel="Bir şey söyle"
+            onPress={() => openTranslate('speak')}
+            style={({ pressed }) => [
+              styles.quickButton,
+              { backgroundColor: colors.teal, transform: [{ scale: pressed ? 0.96 : 1 }] },
+            ]}
+          >
+            <Feather name="message-circle" size={22} color={colors.primaryForeground} />
+            <Text style={[styles.quickText, { color: colors.primaryForeground }]}>Bir şey söyle</Text>
+          </Pressable>
+        </View>
 
         <View style={styles.sectionHeader}>
           <View>
@@ -275,6 +409,112 @@ export default function TabOneScreen() {
             </View>
           ))}
         </View>
+
+        {/* Biliyor muydun? (ortada, her 30 saniyede bir yenilenir) */}
+        <LinearGradient
+          colors={[colors.teal + '26', colors.marigold + '33']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.factCard, { borderColor: colors.border }]}
+        >
+          <View style={[styles.factOrb, styles.factOrbOne, { backgroundColor: colors.marigold }]} />
+          <View style={[styles.factOrb, styles.factOrbTwo, { backgroundColor: colors.teal }]} />
+          <View style={[styles.factEmojiCircle, { backgroundColor: colors.whiteWarm }]}>
+            <Text style={styles.factEmoji}>{currentFact.emoji}</Text>
+          </View>
+          <Text style={[styles.factKicker, { color: colors.tealDeep }]}>BİLİYOR MUYDUN?</Text>
+          <Animated.View style={[styles.factTextWrap, { opacity: factOpacity }]}>
+            <Text style={[styles.factText, { color: colors.foreground }]}>{currentFact.text}</Text>
+          </Animated.View>
+          <View style={styles.factHintRow}>
+            <View style={[styles.factHintDot, { backgroundColor: colors.coral }]} />
+            <Text style={[styles.factHint, { color: colors.mutedForeground }]}>
+              30 saniyede bir yeni bilgi
+            </Text>
+          </View>
+        </LinearGradient>
+
+        {/* Günlük bonus kartı (Premium kullanıcıda gösterilmez) */}
+        {!isPremium ? (
+          <View
+            style={[
+              styles.infoCard,
+              styles.bonusCard,
+              {
+                backgroundColor: canClaimDailyBonus ? colors.marigold + '40' : colors.card,
+                borderColor: canClaimDailyBonus ? colors.marigold : colors.border,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.infoIcon,
+                { backgroundColor: canClaimDailyBonus ? colors.marigold : colors.muted },
+              ]}
+            >
+              <Feather
+                name={canClaimDailyBonus ? 'gift' : 'check'}
+                size={20}
+                color={canClaimDailyBonus ? colors.accentForeground : colors.mutedForeground}
+              />
+            </View>
+            <View style={styles.infoCopy}>
+              <Text style={[styles.infoTitle, { color: colors.foreground }]}>
+                {canClaimDailyBonus ? 'Günlük bonus hazır!' : 'Bugünkü bonusunu aldın'}
+              </Text>
+              <Text style={[styles.infoText, { color: colors.mutedForeground }]}>
+                {canClaimDailyBonus ? 'Bugünkü +1 jetonunu al.' : 'Yarın yeni bir jeton seni bekliyor.'}
+              </Text>
+            </View>
+            {canClaimDailyBonus ? (
+              <Pressable
+                testID="claim-daily-bonus"
+                accessibilityRole="button"
+                accessibilityLabel="Günlük bonusu al"
+                onPress={handleClaimBonus}
+                style={({ pressed }) => [
+                  styles.claimButton,
+                  { backgroundColor: colors.coral, transform: [{ scale: pressed ? 0.94 : 1 }] },
+                ]}
+              >
+                <Text style={[styles.claimText, { color: colors.primaryForeground }]}>Al</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
+
+        {/* Jeton ve Premium kartı */}
+        <Pressable
+          testID="home-premium-card"
+          accessibilityRole="button"
+          accessibilityLabel="Premium'u keşfet"
+          onPress={openPremium}
+          style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.98 : 1 }] }]}
+        >
+          <LinearGradient
+            colors={isPremium ? [colors.tealDeep, colors.teal] : [colors.lilacDeep, colors.coral]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.premiumCard}
+          >
+            <View style={styles.premiumCopy}>
+              <Text style={[styles.premiumKicker, { color: colors.heroText }]}>
+                {isPremium ? 'PREMIUM AKTİF' : '7 GÜN ÜCRETSİZ DENE'}
+              </Text>
+              <Text style={[styles.premiumTitle, { color: colors.softWhite }]}>
+                {isPremium ? 'Sınırsız sohbet açık' : `Sınırsız sohbet,${'\n'}%100 reklamsız`}
+              </Text>
+              {!isPremium ? (
+                <Text style={[styles.premiumText, { color: colors.softWhite }]}>
+                  Kalan jetonun: {creditsRemaining}
+                </Text>
+              ) : null}
+            </View>
+            <View style={[styles.premiumArrow, { backgroundColor: colors.whiteWarm }]}>
+              <Feather name="arrow-right" size={20} color={colors.coral} />
+            </View>
+          </LinearGradient>
+        </Pressable>
       </ScrollView>
     </View>
   );
@@ -382,6 +622,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  creditPlus: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   creditValue: {
     fontFamily: 'Inter_700Bold',
     fontSize: 15,
@@ -400,7 +647,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     paddingLeft: 22,
     paddingVertical: 24,
-    marginBottom: 29,
+    marginBottom: 18,
     shadowColor: themeColors.light.shadowHero,
     shadowOpacity: 0.22,
     shadowRadius: 18,
@@ -503,6 +750,59 @@ const styles = StyleSheet.create({
     left: -48,
     bottom: -54,
   },
+  petCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 12,
+  },
+  petAvatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  petCopy: {
+    flex: 1,
+  },
+  petKicker: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 9,
+    letterSpacing: 1.4,
+  },
+  petName: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 20,
+    letterSpacing: -0.4,
+    marginTop: 2,
+  },
+  petBreed: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  quickRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 26,
+  },
+  quickButton: {
+    flex: 1,
+    minHeight: 56,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  quickText: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 14,
+  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -582,5 +882,154 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  infoCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  bonusCard: {
+    marginTop: 22,
+  },
+  infoIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoCopy: {
+    flex: 1,
+  },
+  infoTitle: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 14,
+  },
+  infoText: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 2,
+  },
+  claimButton: {
+    minWidth: 58,
+    minHeight: 40,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  claimText: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 14,
+  },
+  premiumCard: {
+    marginTop: 14,
+    borderRadius: 24,
+    padding: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  premiumCopy: {
+    flex: 1,
+  },
+  premiumKicker: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 9,
+    letterSpacing: 1.6,
+    marginBottom: 7,
+  },
+  premiumTitle: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 20,
+    lineHeight: 24,
+    letterSpacing: -0.6,
+  },
+  premiumText: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+    marginTop: 8,
+  },
+  premiumArrow: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  factCard: {
+    marginTop: 26,
+    borderRadius: 28,
+    borderWidth: 1,
+    paddingHorizontal: 22,
+    paddingTop: 22,
+    paddingBottom: 18,
+    alignItems: 'center',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  factOrb: {
+    position: 'absolute',
+    borderRadius: 100,
+    opacity: 0.16,
+  },
+  factOrbOne: {
+    width: 110,
+    height: 110,
+    top: -40,
+    right: -30,
+  },
+  factOrbTwo: {
+    width: 80,
+    height: 80,
+    bottom: -34,
+    left: -26,
+  },
+  factEmojiCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  factEmoji: {
+    fontSize: 32,
+  },
+  factKicker: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 10,
+    letterSpacing: 1.8,
+    textAlign: 'center',
+  },
+  factTextWrap: {
+    minHeight: 80,
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  factText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  factHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+  },
+  factHintDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  factHint: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 10,
   },
 });

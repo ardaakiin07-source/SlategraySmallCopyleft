@@ -139,10 +139,10 @@ export default function PremiumScreen() {
               <Ionicons name="sparkles" size={13} color={colors.primaryForeground} />
               <Text style={[styles.planBadgeText, { color: colors.primaryForeground }]}>ÖNERİLEN</Text>
             </View>
-            <Text style={[styles.planName, { color: colors.foreground }]}>Haftalık Sınırsız</Text>
+            <Text style={[styles.planName, { color: colors.foreground }]}>	Aylık Sınırsız</Text>
             <View style={styles.priceRow}>
               <Text style={[styles.price, { color: colors.foreground }]}>{PRICE_TEXT}</Text>
-              <Text style={[styles.priceUnit, { color: colors.mutedForeground }]}> / hafta</Text>
+              <Text style={[styles.priceUnit, { color: colors.mutedForeground }]}> / ay</Text>
             </View>
             <View style={[styles.trialPill, { backgroundColor: colors.marigold }]}>
               <Text style={[styles.trialText, { color: colors.accentForeground }]}>
@@ -206,8 +206,8 @@ export default function PremiumScreen() {
           {!isPremium ? (
             <>
               <Text style={[styles.disclaimer, { color: colors.mutedForeground }]}>
-                {TRIAL_DAYS} günlük ücretsiz denemeden sonra haftada {PRICE_TEXT} tahsil edilir.
-                İptal etmezseniz abonelik her hafta otomatik olarak yenilenir. İstediğiniz zaman{' '}
+                {TRIAL_DAYS} günlük ücretsiz denemeden sonra ayda {PRICE_TEXT} tahsil edilir.
+                İptal etmezseniz abonelik her ay otomatik olarak yenilenir. İstediğiniz zaman{' '}
                 {storeName} hesap ayarlarından iptal edebilirsiniz.
               </Text>
               <Pressable onPress={handleRestore} style={styles.restoreButton}>

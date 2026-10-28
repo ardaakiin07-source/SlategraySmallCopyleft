@@ -1,14 +1,15 @@
 import React from 'react';
-import { Platform, StyleSheet, useColorScheme, View } from 'react-native';
-import { useColors } from '@/hooks/useColors';
+import { Platform, StyleSheet, Text, View } from 'react-native';
+import { useColors, useIsDark } from '@/hooks/useColors';
+import { useT } from '@/hooks/useT';
 import { Feather } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
 
 export default function TabLayout() {
   const colors = useColors();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const t = useT();
+  const isDark = useIsDark();
   const isIOS = Platform.OS === 'ios';
   const isWeb = Platform.OS === 'web';
 
@@ -47,36 +48,63 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Ana Sayfa',
+          title: t('tabHome'),
           tabBarIcon: ({ color }) => <Feather name="home" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="video"
         options={{
-          title: 'Video',
-          tabBarIcon: ({ color }) => <Feather name="video" size={22} color={color} />,
+          href: null,
         }}
       />
       <Tabs.Screen
         name="translate"
         options={{
-          title: 'Hayvan Çeviri',
-          tabBarIcon: ({ color }) => <Feather name="mic" size={22} color={color} />,
+          title: t('tabTranslate'),
+          tabBarLabel: () => (
+            <Text style={{ fontSize: 11, fontFamily: 'Inter_700Bold', color: colors.coral }}>
+              {t('tabTranslate')}
+            </Text>
+          ),
+          tabBarIcon: () => (
+            <View
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: colors.coral,
+                alignItems: 'center',
+                justifyContent: 'center',
+                shadowColor: colors.coral,
+                shadowOpacity: 0.4,
+                shadowRadius: 6,
+                shadowOffset: { width: 0, height: 3 },
+              }}
+            >
+              <Feather name="mic" size={20} color={colors.primaryForeground} />
+            </View>
+          ),
         }}
       />
       <Tabs.Screen
         name="reminders"
         options={{
-          title: 'Hatırlatıcı',
+          title: t('tabReminders'),
           tabBarIcon: ({ color }) => <Feather name="bell" size={22} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: t('tabSettings'),
+          tabBarIcon: ({ color }) => <Feather name="settings" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="premium"
         options={{
-          title: 'Jeton Al',
-          tabBarIcon: ({ color }) => <Feather name="shopping-bag" size={22} color={color} />,
+          href: null,
         }}
       />
       <Tabs.Screen

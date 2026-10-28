@@ -1,25 +1,32 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
-export type Language = 'Türkçe' | 'English';
+export type Language = 'Türkçe' | 'English' | 'العربية';
+export type ThemeMode = 'system' | 'light' | 'dark';
 export type PetType = 'dog' | 'cat';
+export type PetGender = 'male' | 'female';
 
 export type Pet = {
   id: string;
   type: PetType;
   name: string;
   breed: string;
+  age?: string;
+  gender?: PetGender;
 };
 
 export type AppState = {
   displayName: string;
   language: Language;
+  themeMode: ThemeMode;
+  hapticsEnabled: boolean;
   isPremium: boolean;
   // creditsRemaining = kalan jeton sayısı
   creditsRemaining: number;
   creditsTotal: number;
-  // lastCreditDate = günlük bonus jetonunun son verildiği gün
   lastCreditDate: string;
+  // bonusClaimedDate = günlük bonus jetonunun son alındığı gün
+  bonusClaimedDate: string;
   creditHistory: number[];
   pets: Pet[];
   activePetId: string | null;
@@ -28,12 +35,28 @@ export type AppState = {
 type AppContextValue = AppState & {
   isReady: boolean;
   pet: Pet | null;
+  canClaimDailyBonus: boolean;
   consumeCredit: () => boolean;
   addCredits: (amount: number) => void;
+  claimDailyBonus: () => boolean;
   activatePremium: () => void;
   updateDisplayName: (value: string) => void;
   toggleLanguage: () => void;
-  addPet: (input: { type: PetType; name: string; breed: string }) => void;
+  setLanguage: (language: Language) => void;
+  setThemeMode: (mode: ThemeMode) => void;
+  setHapticsEnabled: (enabled: boolean) => void;
+  addPet: (input: {
+    type: PetType;
+    name: string;
+    breed: string;
+    age?: string;
+    gender?: PetGender;
+  }) => void;
+  updatePet: (id: string, patch: Partial<Omit<Pet, 'id'>>) => void;
+  // YENİ: bir hayvanı siler
+  removePet: (id: string) => void;
+  // YENİ: seçili (aktif) hayvanı değiştirir
+  setActivePet: (id: string) => void;
 };
 
 const STORAGE_KEY = '@hayvan-dili/app-state';
@@ -41,10 +64,8 @@ const STORAGE_KEY = '@hayvan-dili/app-state';
 // ---- JETON AYARLARI (sayıları buradan değiştirebilirsin) ----
 // Yeni kullanıcıya hediye jeton sayısı
 const START_TOKENS = 5;
-// Her gün uygulamayı açana verilen bonus jeton
+// Günlük bonus butonuna basınca verilen jeton (günde bir kez)
 const DAILY_BONUS = 1;
-// Günlük bonus sadece jeton sayısı bu sayının altındaysa verilir
-const DAILY_BONUS_LIMIT = 5;
 // --------------------------------------------------------------
 
 const getDayKey = () => {
@@ -55,10 +76,13 @@ const getDayKey = () => {
 const initialState: AppState = {
   displayName: '',
   language: 'Türkçe',
+  themeMode: 'system',
+  hapticsEnabled: true,
   isPremium: false,
   creditsRemaining: START_TOKENS,
   creditsTotal: START_TOKENS,
   lastCreditDate: getDayKey(),
+  bonusClaimedDate: '',
   creditHistory: [],
   pets: [],
   activePetId: null,
@@ -76,18 +100,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .then((stored) => {
         if (!stored) return;
         const parsed = JSON.parse(stored) as Partial<AppState>;
-        const today = getDayKey();
-        let balance = parsed.creditsRemaining ?? START_TOKENS;
-
-        // Yeni gün başladıysa ve jeton azsa günlük bonus ver
-        if (!parsed.isPremium && parsed.lastCreditDate !== today && balance < DAILY_BONUS_LIMIT) {
-          balance = Math.min(balance + DAILY_BONUS, DAILY_BONUS_LIMIT);
-        }
+        const balance = parsed.creditsRemaining ?? START_TOKENS;
 
         setState({
           ...initialState,
           ...parsed,
-          lastCreditDate: today,
+          lastCreditDate: getDayKey(),
           creditsRemaining: balance,
           creditsTotal: parsed.isPremium ? 9999 : Math.max(balance, START_TOKENS),
         });
@@ -111,6 +129,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ...state,
       isReady,
       pet: state.pets.find((item) => item.id === state.activePetId) ?? state.pets[0] ?? null,
+      canClaimDailyBonus: !state.isPremium && state.bonusClaimedDate !== getDayKey(),
       consumeCredit: () => {
         if (state.isPremium) return true;
         if (state.creditsRemaining <= 0) return false;
@@ -134,6 +153,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           };
         });
       },
+      // Günlük bonus: günde bir kez, true döner = jeton verildi
+      claimDailyBonus: () => {
+        const today = getDayKey();
+        if (state.isPremium || state.bonusClaimedDate === today) return false;
+        setState((current) => {
+          if (current.isPremium || current.bonusClaimedDate === today) return current;
+          const balance = current.creditsRemaining + DAILY_BONUS;
+          return {
+            ...current,
+            creditsRemaining: balance,
+            creditsTotal: Math.max(current.creditsTotal, balance),
+            bonusClaimedDate: today,
+          };
+        });
+        return true;
+      },
       activatePremium: () => {
         setState((current) => ({
           ...current,
@@ -151,18 +186,49 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           language: current.language === 'Türkçe' ? 'English' : 'Türkçe',
         }));
       },
+      setLanguage: (language: Language) => {
+        setState((current) => ({ ...current, language }));
+      },
+      setThemeMode: (themeMode: ThemeMode) => {
+        setState((current) => ({ ...current, themeMode }));
+      },
+      setHapticsEnabled: (hapticsEnabled: boolean) => {
+        setState((current) => ({ ...current, hapticsEnabled }));
+      },
       addPet: (input) => {
         const newPet: Pet = {
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           type: input.type,
           name: input.name,
           breed: input.breed,
+          age: input.age,
+          gender: input.gender,
         };
         setState((current) => ({
           ...current,
           pets: [...current.pets, newPet],
           activePetId: newPet.id,
         }));
+      },
+      // Dostumun bilgilerini günceller (isim, tür, cins, yaş, cinsiyet)
+      updatePet: (id: string, patch: Partial<Omit<Pet, 'id'>>) => {
+        setState((current) => ({
+          ...current,
+          pets: current.pets.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+        }));
+      },
+      // YENİ: Hayvanı siler. Silinen hayvan seçiliyse listedeki ilk hayvan seçilir.
+      removePet: (id: string) => {
+        setState((current) => {
+          const pets = current.pets.filter((item) => item.id !== id);
+          const activePetId =
+            current.activePetId === id ? (pets[0]?.id ?? null) : current.activePetId;
+          return { ...current, pets, activePetId };
+        });
+      },
+      // YENİ: Seçili hayvanı değiştirir
+      setActivePet: (id: string) => {
+        setState((current) => ({ ...current, activePetId: id }));
       },
     }),
     [state, isReady],
@@ -177,4 +243,10 @@ export function useApp() {
     throw new Error('useApp must be used inside AppProvider');
   }
   return value;
+}
+
+// Tema seçimini okur. AppProvider dışında çağrılırsa hata vermez, "telefon" ayarına döner.
+export function useThemeMode(): ThemeMode {
+  const value = useContext(AppContext);
+  return value?.themeMode ?? 'system';
 }

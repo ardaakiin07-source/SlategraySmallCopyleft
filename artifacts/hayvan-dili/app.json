@@ -14,7 +14,12 @@
       "backgroundColor": "#fff8ee"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.influx7.hayvandili",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Hayvanının sesini kaydedip çevirebilmek için mikrofona erişim gerekiyor.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {},
     "web": {
@@ -34,6 +39,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "23237667-3ef9-44e0-8d97-119428deb60b"
+      }
+    },
+    "owner": "influx7"
   }
 }
