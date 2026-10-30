@@ -63,7 +63,7 @@ const STORAGE_KEY = '@hayvan-dili/app-state';
 
 // ---- JETON AYARLARI (sayıları buradan değiştirebilirsin) ----
 // Yeni kullanıcıya hediye jeton sayısı
-const START_TOKENS = 5;
+const START_TOKENS = 15;
 // Günlük bonus butonuna basınca verilen jeton (günde bir kez)
 const DAILY_BONUS = 1;
 // --------------------------------------------------------------
