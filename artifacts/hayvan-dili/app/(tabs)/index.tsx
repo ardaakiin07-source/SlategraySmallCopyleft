@@ -261,11 +261,6 @@ export default function TabOneScreen() {
     });
   };
 
-  const openPremium = () => {
-    if (hapticsEnabled) Haptics.selectionAsync();
-    router.push('/premium');
-  };
-
   const handleClaimBonus = () => {
     if (claimDailyBonus() && hapticsEnabled) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -290,12 +285,8 @@ export default function TabOneScreen() {
           <Pressable
             testID="credit-badge"
             accessibilityRole="button"
-            accessibilityLabel="Jeton al"
-            onPress={openPremium}
-            style={({ pressed }) => [
-              styles.creditBadge,
-              { backgroundColor: colors.whiteWarm, borderColor: colors.border, opacity: pressed ? 0.8 : 1 },
-            ]}
+            accessibilityLabel="Jeton"
+            style={[styles.creditBadge, { backgroundColor: colors.whiteWarm, borderColor: colors.border }]}
           >
             <View style={[styles.creditIcon, { backgroundColor: colors.marigold }]}>
               <Feather name="star" size={13} color={colors.accentForeground} />
@@ -305,9 +296,6 @@ export default function TabOneScreen() {
                 {isPremium ? '∞' : `${creditsRemaining}`}
               </Text>
               <Text style={[styles.creditLabel, { color: colors.mutedForeground }]}>jeton</Text>
-            </View>
-            <View style={[styles.creditPlus, { backgroundColor: colors.coral }]}>
-              <Feather name="plus" size={12} color={colors.primaryForeground} />
             </View>
           </Pressable>
         </View>
@@ -482,39 +470,6 @@ export default function TabOneScreen() {
             ) : null}
           </View>
         ) : null}
-
-        {/* Jeton ve Premium kartı */}
-        <Pressable
-          testID="home-premium-card"
-          accessibilityRole="button"
-          accessibilityLabel="Premium'u keşfet"
-          onPress={openPremium}
-          style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.98 : 1 }] }]}
-        >
-          <LinearGradient
-            colors={isPremium ? [colors.tealDeep, colors.teal] : [colors.lilacDeep, colors.coral]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.premiumCard}
-          >
-            <View style={styles.premiumCopy}>
-              <Text style={[styles.premiumKicker, { color: colors.heroText }]}>
-                {isPremium ? 'PREMIUM AKTİF' : '7 GÜN ÜCRETSİZ DENE'}
-              </Text>
-              <Text style={[styles.premiumTitle, { color: colors.softWhite }]}>
-                {isPremium ? 'Sınırsız sohbet açık' : `Sınırsız sohbet,${'\n'}%100 reklamsız`}
-              </Text>
-              {!isPremium ? (
-                <Text style={[styles.premiumText, { color: colors.softWhite }]}>
-                  Kalan jetonun: {creditsRemaining}
-                </Text>
-              ) : null}
-            </View>
-            <View style={[styles.premiumArrow, { backgroundColor: colors.whiteWarm }]}>
-              <Feather name="arrow-right" size={20} color={colors.coral} />
-            </View>
-          </LinearGradient>
-        </Pressable>
       </ScrollView>
     </View>
   );

@@ -196,7 +196,7 @@ export default function RemindersScreen() {
 
   const openAdd = () => {
     if (!isPremium && reminders.length >= FREE_LIMIT) {
-      setMessage(`Ücretsiz planda en fazla ${FREE_LIMIT} hatırlatıcı ekleyebilirsin. Sınırsız için Premium'a geç.`);
+      setMessage(`Ücretsiz planda en fazla ${FREE_LIMIT} hatırlatıcı ekleyebilirsin.`);
       return;
     }
     setMessage('');

@@ -35,7 +35,7 @@ const ANIMAL_EMOJI: Record<string, string> = { dog: '🐶', cat: '🐱' };
 
 const MICROPHONE_PERMISSION_MESSAGE = 'Mikrofon izni verilmedi. Ses analizi için mikrofon erişimini açmalısın.';
 const SHORT_RECORDING_MESSAGE = 'Bu sesi analiz etmek için biraz daha uzun bir kayıt gerekiyor.';
-const NO_CREDIT_MESSAGE = 'Jetonların bitti. Aşağıdaki butondan yeni jeton alabilirsin.';
+const NO_CREDIT_MESSAGE = 'Jetonların bitti. Yarın yeni hediye jetonunu alabilirsin.';
 const ANALYSIS_ERROR_MESSAGES: Record<string, string> = {
   INVALID_ANIMAL: 'Bu hayvan için analiz yapılamadı. Lütfen dostunu tekrar seç.',
   INVALID_FILE_TYPE: 'Bu ses dosyası desteklenmiyor. Lütfen tekrar kayıt yap.',
@@ -568,11 +568,6 @@ export default function TranslateScreen() {
     router.navigate('/');
   };
 
-  const openPremium = () => {
-    select();
-    router.push('/premium');
-  };
-
   const hasMessage = message.trim().length > 0;
   const activePhrase = isPlaying || tone ? sentText : '';
   const noCredit = feedback === NO_CREDIT_MESSAGE;
@@ -603,18 +598,13 @@ export default function TranslateScreen() {
           <Pressable
             testID="translate-credit"
             accessibilityRole="button"
-            accessibilityLabel="Jeton al"
-            onPress={openPremium}
-            style={({ pressed }) => [
-              styles.smallCredit,
-              { backgroundColor: colors.marigold, opacity: pressed ? 0.8 : 1 },
-            ]}
+            accessibilityLabel="Jeton"
+            style={[styles.smallCredit, { backgroundColor: colors.marigold }]}
           >
             <Feather name="star" size={13} color={colors.accentForeground} />
             <Text style={[styles.smallCreditText, { color: colors.accentForeground }]}>
               {isPremium ? '∞' : creditsRemaining}
             </Text>
-            <Feather name="plus" size={12} color={colors.accentForeground} />
           </Pressable>
         </View>
 
@@ -856,21 +846,6 @@ export default function TranslateScreen() {
                 <Feather name="x" size={16} color={colors.mutedForeground} />
               </Pressable>
             </View>
-            {noCredit ? (
-              <Pressable
-                testID="feedback-buy"
-                accessibilityRole="button"
-                accessibilityLabel="Jeton al"
-                onPress={openPremium}
-                style={({ pressed }) => [
-                  styles.buyButton,
-                  { backgroundColor: colors.coral, transform: [{ scale: pressed ? 0.97 : 1 }] },
-                ]}
-              >
-                <Feather name="shopping-bag" size={16} color={colors.primaryForeground} />
-                <Text style={[styles.buyText, { color: colors.primaryForeground }]}>Jeton Al</Text>
-              </Pressable>
-            ) : null}
           </View>
         </View>
       ) : showToast ? (
